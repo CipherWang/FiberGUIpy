@@ -55,3 +55,14 @@ class FiberRPC:
 
     def list_channels(self, param):
         return self.rpc_request("list_channels", params=param)
+
+    def open_channel(self, peer_id, funding_amount, funding_udt_type_script=None):
+        return self.rpc_request("open_channel",
+                                params=[{"peer_id":peer_id,
+                                         "funding_amount":hex(int(funding_amount*10**8))}])
+
+    def shutdown_channel(self, chn_id):
+        return self.rpc_request("shutdown_channel",
+                                params=[{"channel_id":chn_id,
+                                         "fee_rate":hex(1000)
+                                         }])
