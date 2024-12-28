@@ -1,5 +1,7 @@
 # Simple GUI for Fiber CLI
 
+![screen shot](./screenshot.png)
+
 How to use:
 
 1. install requirements:
