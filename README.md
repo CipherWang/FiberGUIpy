@@ -14,4 +14,10 @@ $ pip3 install -r requirements.txt
 $ python3 main.py
 ```
 
+3. build 
+
+```
+$ pyinstaller main.spec
+```
+
 Or, you can download the binary in the release page.
