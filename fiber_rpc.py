@@ -64,5 +64,29 @@ class FiberRPC:
     def shutdown_channel(self, chn_id):
         return self.rpc_request("shutdown_channel",
                                 params=[{"channel_id":chn_id,
+                                         "close_script": {
+                                             "code_hash": "0x2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+                                             "hash_type": "data",
+                                             "args": "0x0101010101010101010101010101010101010101"
+                                         },
                                          "fee_rate":hex(1000)
                                          }])
+
+    def graph_nodes(self):
+        nodes = []
+        after = None
+        while True:
+            result = self.rpc_request("graph_nodes",
+                                      params=[{"limit":hex(10),
+                                               "after": after
+                                               }])
+            if result["code"] == "error":
+                return result
+            else:
+                data = result['data']
+                if len(data['nodes']) == 0:
+                    break
+                for item in data["nodes"]:
+                    nodes.append(item)
+                after = data['last_cursor']
+        return {"code": "ok", "data": nodes}

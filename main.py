@@ -15,12 +15,12 @@ def show_error_message(data):
     """
     # 创建错误提示框
     error_box = QMessageBox()
-    error_box.setIcon(QMessageBox.Icon.Critical)  # 设置为错误图标
-    error_box.setWindowTitle("Error")  # 设置标题
-    error_box.setText("RPC error has occurred!")  # 设置主要错误信息
-    error_box.setInformativeText(data)  # 设置补充信息
-    error_box.setStandardButtons(QMessageBox.StandardButton.Ok)  # 添加按钮
-    error_box.setDefaultButton(QMessageBox.StandardButton.Ok)  # 设置默认按钮
+    error_box.setIcon(QMessageBox.Icon.Critical)
+    error_box.setWindowTitle("Error")
+    error_box.setText("RPC error has occurred!")
+    error_box.setInformativeText(data)
+    error_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+    error_box.setDefaultButton(QMessageBox.StandardButton.Ok)
 
     # 显示提示框
     error_box.exec()
@@ -29,6 +29,7 @@ def show_error_message(data):
 class MyApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.nodes_info = []
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.ui.btnConnect.clicked.connect(self.on_connect_click)
@@ -38,6 +39,9 @@ class MyApp(QMainWindow):
         self.ui.txtChnAmount.setValidator(validator)
         self.ui.tableChn.itemClicked.connect(self.on_channel_item_clicked)
         self.ui.btnCloseChn.clicked.connect(self.on_close_channel_clicked)
+        self.ui.btnRefreshNode.clicked.connect(self.on_node_refresh_clicked)
+        self.ui.checkIPOnly.checkStateChanged.connect(self.on_node_filter_changed)
+        self.ui.btnRefreshChn.clicked.connect(self.update_channels)
 
     def on_connect_click(self):
         if self.update_node_info():
@@ -110,6 +114,52 @@ class MyApp(QMainWindow):
         self.update_channels()
         self.ui.btnOpenChn.setEnabled(True)
 
+    def __refresh_nodes_table(self):
+        # clear display
+        tableNodes = self.ui.tableNode
+        while tableNodes.rowCount() > 0:
+            tableNodes.removeRow(0)
+        ip_only = self.ui.checkIPOnly.isChecked()
+
+        for item in self.nodes_info:
+            if ip_only: # display nodes with ip only
+                if len(item['addresses']) == 0:
+                    continue
+                addr = item['addresses'][0]
+                if addr.find('0.0.0.0') != -1 or addr.find('127.0.0.1') != -1:
+                    continue
+            row_count = tableNodes.rowCount()
+            tableNodes.insertRow(row_count)
+            tableNodes.setItem(row_count, 0, QTableWidgetItem(item['alias']))
+            if len(item['addresses']) > 0:
+                tableNodes.setItem(row_count, 1, QTableWidgetItem(item['addresses'][0]))
+            else:
+                tableNodes.setItem(row_count, 1, QTableWidgetItem(""))
+            tableNodes.setItem(row_count, 2, QTableWidgetItem(item['node_id']))
+            local_time = datetime.fromtimestamp(int(item['timestamp'], 16) / 1000.0)
+            tableNodes.setItem(row_count, 3, QTableWidgetItem(local_time.strftime("%Y-%m-%d %H:%M:%S")))
+            udt_list = []
+            for udt in item['udt_cfg_infos']:
+                udt_list.append(udt['name'])
+            tableNodes.setItem(row_count, 4, QTableWidgetItem(str(udt_list)))
+            tableNodes.setItem(row_count, 5,
+                               QTableWidgetItem(str(int(item['auto_accept_min_ckb_funding_amount'], 16) / 10 ** 8)))
+
+    def update_nodes(self):
+        self.nodes_info = []
+        rpc = FiberRPC(self.ui.comboURL.currentText())
+        result = rpc.graph_nodes()
+
+        if result["code"] == "ok":
+            self.nodes_info = result['data']
+            self.__refresh_nodes_table()
+            return True
+        else:
+            self.__refresh_nodes_table()
+            self.statusBar().showMessage("Failed to get node graph")
+            return False
+
+
     def on_open_channel(self):
         if self.ui.txtPeerID.text() == "" or self.ui.txtChnAmount.text() == "":
             return
@@ -139,6 +189,15 @@ class MyApp(QMainWindow):
         result = rpc.shutdown_channel(chn_id)
         if result["code"] == "error":
             show_error_message(result['data'])
+        else:
+            self.statusBar().showMessage("Successfully sent close command to this channel, refreshing...")
+            Timer(5, self.async_update_channels).start()
+
+    def on_node_refresh_clicked(self):
+        self.update_nodes()
+
+    def on_node_filter_changed(self):
+        self.__refresh_nodes_table()
 
 
 if __name__ == "__main__":
