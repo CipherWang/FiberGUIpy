@@ -1,4 +1,6 @@
 import json
+import secrets
+
 import requests
 
 class FiberRPC:
@@ -90,3 +92,18 @@ class FiberRPC:
                     nodes.append(item)
                 after = data['last_cursor']
         return {"code": "ok", "data": nodes}
+
+    def new_invoice_ckb(self, amount, description, preimage=None):
+        if not preimage:
+            preimage = '0x' + secrets.token_hex(32)
+        return self.rpc_request("new_invoice",
+                                params=[{"amount": hex(int(amount * 10 ** 8)),
+                                         "currency": "Fibt",
+                                         "description": description,
+                                         "expiry": "0xe10",
+                                         "payment_preimage": preimage
+                                         }])
+
+    def get_invoice(self, payment_hash):
+        return self.rpc_request("get_invoice",
+                                params=[{"payment_hash": payment_hash}])

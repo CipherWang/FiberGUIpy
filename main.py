@@ -1,34 +1,26 @@
 import sys
 
-from PyQt6.QtGui import QDoubleValidator
-from PyQt6.QtWidgets import QApplication, QMainWindow, QTableWidgetItem, QPushButton, QMessageBox
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QDoubleValidator, QPixmap
+from PyQt6.QtWidgets import QApplication, QMainWindow, QTableWidgetItem, QPushButton, QMessageBox, QGraphicsPixmapItem
 from datetime import datetime
 
 from fiber_rpc import FiberRPC
 from main_window import Ui_MainWindow
 from threading import Timer
 
+import qrcode
 
-def show_error_message(data):
-    """
-    弹出错误提示框
-    """
-    # 创建错误提示框
-    error_box = QMessageBox()
-    error_box.setIcon(QMessageBox.Icon.Critical)
-    error_box.setWindowTitle("Error")
-    error_box.setText("RPC error has occurred!")
-    error_box.setInformativeText(data)
-    error_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-    error_box.setDefaultButton(QMessageBox.StandardButton.Ok)
-
-    # 显示提示框
-    error_box.exec()
+def generate_qr_code(data, size):
+    img = qrcode.make(data)
+    return QPixmap.fromImage(img.toqimage())
 
 
 class MyApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.payment_hash = None
+        self.qr_data = None
         self.nodes_info = []
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
@@ -37,11 +29,32 @@ class MyApp(QMainWindow):
         validator = QDoubleValidator(0.0, 1000000000.0, 8)  # 范围 [-100.0, 100.0]，精度 2 位小数
         validator.setNotation(QDoubleValidator.Notation.StandardNotation)  # 标准表示法
         self.ui.txtChnAmount.setValidator(validator)
+        self.ui.txtPayAmount.setValidator(validator)
         self.ui.tableChn.itemClicked.connect(self.on_channel_item_clicked)
         self.ui.btnCloseChn.clicked.connect(self.on_close_channel_clicked)
         self.ui.btnRefreshNode.clicked.connect(self.on_node_refresh_clicked)
         self.ui.checkIPOnly.checkStateChanged.connect(self.on_node_filter_changed)
         self.ui.btnRefreshChn.clicked.connect(self.update_channels)
+        self.ui.btnGenInvoice.clicked.connect(self.on_gen_invoice_clicked)
+        self.ui.btnUpdateReceive.clicked.connect(self.on_check_invoice_clicked)
+
+    def show_invoice_qr(self, data):
+        self.qr_data = data
+        if not data:
+            pixmap = QPixmap(256, 256)
+            pixmap.fill(Qt.GlobalColor.white)
+        else:
+            img = qrcode.make(data)
+            pixmap = QPixmap.fromImage(img.toqimage())
+        # auto scale
+        label_size = self.ui.labelImage.size()
+        scaled_pixmap = pixmap.scaled(label_size, Qt.AspectRatioMode.KeepAspectRatio,
+                                      Qt.TransformationMode.SmoothTransformation)
+        self.ui.labelImage.setPixmap(scaled_pixmap)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.show_invoice_qr(self.qr_data)
 
     def on_connect_click(self):
         if self.update_node_info():
@@ -199,9 +212,55 @@ class MyApp(QMainWindow):
     def on_node_filter_changed(self):
         self.__refresh_nodes_table()
 
+    def on_gen_invoice_clicked(self):
+        self.show_invoice_qr(None)
+        rpc = FiberRPC(self.ui.comboURL.currentText())
+        t_amount = self.ui.txtPayAmount.text()
+        t_desc = self.ui.txtDescription.text()
+        if len(t_amount) == 0:
+            return
+        result = rpc.new_invoice_ckb(float(t_amount), t_desc)
+        if result["code"] == "error":
+            self.qr_data = None
+            self.payment_hash = None
+            show_error_message(result['data'])
+        else:
+            self.payment_hash = result['data']['invoice']['data']['payment_hash']
+            self.statusBar().showMessage("Successfully generated new invoice.")
+            self.show_invoice_qr(result['data']['invoice_address'])
+
+    def on_check_invoice_clicked(self):
+        if not self.payment_hash:
+            return
+        rpc = FiberRPC(self.ui.comboURL.currentText())
+        result = rpc.get_invoice(self.payment_hash)
+        if result["code"] == "error":
+            self.ui.txtInvoiceStatus.setText("Error!")
+            show_error_message(result['data'])
+        else:
+            print(result['data'])
+            self.ui.txtInvoiceStatus.setText(result['data']['status'])
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MyApp()
     window.show()
     sys.exit(app.exec())
+
+
+def show_error_message(data):
+    """
+    弹出错误提示框
+    """
+    # 创建错误提示框
+    error_box = QMessageBox()
+    error_box.setIcon(QMessageBox.Icon.Critical)
+    error_box.setWindowTitle("Error")
+    error_box.setText("RPC error has occurred!")
+    error_box.setInformativeText(data)
+    error_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+    error_box.setDefaultButton(QMessageBox.StandardButton.Ok)
+
+    # 显示提示框
+    error_box.exec()
