@@ -10,9 +10,26 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        'PyQt6.QtWebEngineWidgets',
+        'PyQt6.QtWebEngineCore',
+        'PyQt6.QtWebEngine',
+        'PyQt6.QtMultimedia',
+        'PyQt6.QtMultimediaWidgets',
+        'PyQt6.QtQuick',
+        'PyQt6.QtQuickWidgets',
+        'PyQt6.Qt3DCore',
+        'PyQt6.Qt3DRender',
+        'PyQt6.Qt3DExtras',
+        'PyQt6.QtOpenGL',
+        'PyQt6.QtSvg',
+        'PyQt6.QtBluetooth',
+        'PyQt6.QtSensors',
+        'PyQt6.QtSerialPort',
+        'PyQt6.QtTest'
+    ],
     noarchive=False,
-    optimize=0,
+    optimize=2,
 )
 pyz = PYZ(a.pure)
 
@@ -39,6 +56,6 @@ exe = EXE(
 app = BUNDLE(
     exe,
     name='FiberGUIPy.app',
-    icon=None,
+    icon='./images/icon.icns',
     bundle_identifier=None,
 )

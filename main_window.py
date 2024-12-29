@@ -335,7 +335,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "FiberGUIpy"))
         self.label.setText(_translate("MainWindow", "Server URL: "))
         self.comboURL.setItemText(0, _translate("MainWindow", "http://localhost:8227"))
         self.comboURL.setItemText(1, _translate("MainWindow", "http://47.99.60.37:8227"))
