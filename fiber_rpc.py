@@ -116,3 +116,7 @@ class FiberRPC:
     def parse_invoice(self, invoice):
         return self.rpc_request("parse_invoice",
                                 params=[{"invoice": invoice}])
+
+    def get_payment(self, payment_hash):
+        return self.rpc_request("get_payment",
+                                params=[{"payment_hash": payment_hash}])

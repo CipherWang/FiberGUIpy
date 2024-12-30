@@ -8,6 +8,7 @@ from datetime import datetime
 from fiber_rpc import FiberRPC
 from main_window import Ui_MainWindow
 from threading import Timer
+import pyperclip
 
 import qrcode
 
@@ -55,6 +56,8 @@ class MyApp(QMainWindow):
         self.ui.btnUpdateReceive.clicked.connect(self.on_check_invoice_clicked)
         self.ui.txtInvoice.textChanged.connect(self.on_invoice_txt_changed)
         self.ui.btnPayInvoice.clicked.connect(self.on_pay_invoice)
+        self.ui.btnInvoiceUpdate.clicked.connect(self.on_update_pay_invoice)
+        self.ui.btnCopyInvoice.clicked.connect(self.on_copy_invoice_clicked)
 
     def show_invoice_qr(self, data):
         self.qr_data = data
@@ -241,11 +244,17 @@ class MyApp(QMainWindow):
         if result["code"] == "error":
             self.qr_data = None
             self.payment_hash = None
+            self.ui.txtInvoiceString.setText("")
             show_error_message(result['data'])
         else:
             self.payment_hash = result['data']['invoice']['data']['payment_hash']
             self.statusBar().showMessage("Successfully generated new invoice.")
+            self.ui.txtInvoiceString.setText(result['data']['invoice_address'])
             self.show_invoice_qr(result['data']['invoice_address'])
+
+    def on_copy_invoice_clicked(self):
+        pyperclip.copy(self.ui.txtInvoiceString.text())
+        self.statusBar().showMessage("Successfully copied invoice to clipboard.")
 
     def on_check_invoice_clicked(self):
         if not self.payment_hash:
@@ -287,6 +296,18 @@ class MyApp(QMainWindow):
             print(result['data'])
         else:
             show_error_message(result['data'])
+
+    def on_update_pay_invoice(self):
+        self.ui.txtInvoicePaystatus.setText("")
+        payment_hash = self.ui.txtInvoicePayhash.text()
+        if len(payment_hash) >= 32:
+            rpc = FiberRPC(self.ui.comboURL.currentText())
+            result = rpc.get_payment(payment_hash)
+            if result["code"] == "error":
+                show_error_message(result['data'])
+            else:
+                self.ui.txtInvoicePaystatus.setText(result['data']['status'])
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
