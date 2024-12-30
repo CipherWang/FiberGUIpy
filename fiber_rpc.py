@@ -41,6 +41,7 @@ class FiberRPC:
             response.raise_for_status()
             # 解析返回的 JSON 数据
             result = response.json()
+            print(result)
             # 检查是否包含错误
             if "error" in result:
                 raise ValueError(f"RPC Error: {result['error']}")
@@ -107,3 +108,11 @@ class FiberRPC:
     def get_invoice(self, payment_hash):
         return self.rpc_request("get_invoice",
                                 params=[{"payment_hash": payment_hash}])
+
+    def send_payment_pay_invoice(self, invoice):
+        return self.rpc_request("send_payment",
+                                params=[{"invoice": invoice}])
+
+    def parse_invoice(self, invoice):
+        return self.rpc_request("parse_invoice",
+                                params=[{"invoice": invoice}])

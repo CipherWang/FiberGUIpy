@@ -15,6 +15,22 @@ def generate_qr_code(data, size):
     img = qrcode.make(data)
     return QPixmap.fromImage(img.toqimage())
 
+def show_error_message(data):
+    """
+    弹出错误提示框
+    """
+    # 创建错误提示框
+    error_box = QMessageBox()
+    error_box.setIcon(QMessageBox.Icon.Critical)
+    error_box.setWindowTitle("Error")
+    error_box.setText("RPC error has occurred!")
+    error_box.setInformativeText(data)
+    error_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+    error_box.setDefaultButton(QMessageBox.StandardButton.Ok)
+
+    # 显示提示框
+    error_box.exec()
+
 
 class MyApp(QMainWindow):
     def __init__(self):
@@ -37,6 +53,8 @@ class MyApp(QMainWindow):
         self.ui.btnRefreshChn.clicked.connect(self.update_channels)
         self.ui.btnGenInvoice.clicked.connect(self.on_gen_invoice_clicked)
         self.ui.btnUpdateReceive.clicked.connect(self.on_check_invoice_clicked)
+        self.ui.txtInvoice.textChanged.connect(self.on_invoice_txt_changed)
+        self.ui.btnPayInvoice.clicked.connect(self.on_pay_invoice)
 
     def show_invoice_qr(self, data):
         self.qr_data = data
@@ -108,7 +126,7 @@ class MyApp(QMainWindow):
                 coin = "CKB"
                 if item['funding_udt_type_script'] is not None:
                     coin = item['funding_udt_type_script']
-                tableChn.setItem(row_count, 2, QTableWidgetItem(coin))
+                tableChn.setItem(row_count, 2, QTableWidgetItem(str(coin)))
                 local_balance = str(int(item['local_balance'], 16) / 10 ** 8)
                 remote_balance = str(int(item['remote_balance'], 16) / 10 ** 8)
                 tableChn.setItem(row_count, 3, QTableWidgetItem(local_balance))
@@ -241,6 +259,34 @@ class MyApp(QMainWindow):
             print(result['data'])
             self.ui.txtInvoiceStatus.setText(result['data']['status'])
 
+    def on_invoice_txt_changed(self):
+        str_invoice = self.ui.txtInvoice.toPlainText()
+        rpc = FiberRPC(self.ui.comboURL.currentText())
+        result = rpc.parse_invoice(str_invoice)
+        if result['code'] == "ok":
+            invoice = result['data']['invoice']
+            self.ui.txtInvoiceCoin.setText(invoice['currency'])
+            self.ui.txtInvoiceAmount.setText(str(int(invoice['amount'], 16)/10**8))
+            self.ui.txtInvoicePayhash.setText(invoice['data']['payment_hash'])
+            attrs_list = ""
+            for attr in invoice['data']['attrs']:
+                for k, v in attr.items():
+                    attrs_list += "%s: %s\n" % (k, v)
+            self.ui.txtInvoiceAttrs.setPlainText(attrs_list)
+        else:
+            self.ui.txtInvoiceCoin.setText("")
+            self.ui.txtInvoiceAmount.setText("")
+            self.ui.txtInvoicePayhash.setText("")
+            self.ui.txtInvoiceAttrs.setPlainText("")
+
+    def on_pay_invoice(self):
+        str_invoice = self.ui.txtInvoice.toPlainText()
+        rpc = FiberRPC(self.ui.comboURL.currentText())
+        result = rpc.send_payment_pay_invoice(str_invoice)
+        if result['code'] == "ok":
+            print(result['data'])
+        else:
+            show_error_message(result['data'])
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -249,18 +295,3 @@ if __name__ == "__main__":
     sys.exit(app.exec())
 
 
-def show_error_message(data):
-    """
-    弹出错误提示框
-    """
-    # 创建错误提示框
-    error_box = QMessageBox()
-    error_box.setIcon(QMessageBox.Icon.Critical)
-    error_box.setWindowTitle("Error")
-    error_box.setText("RPC error has occurred!")
-    error_box.setInformativeText(data)
-    error_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-    error_box.setDefaultButton(QMessageBox.StandardButton.Ok)
-
-    # 显示提示框
-    error_box.exec()
